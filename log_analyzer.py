@@ -22,6 +22,9 @@ config = {
     "LOG_DIR": "./log"
 }
 
+# TODO: Сделать логиррование
+# TODO: sys.argv --config путь до другого конфига
+
 # Паттерны
 _http_methods = ["GET", "POST", "HEAD", "OPTIONS", "TRACE", "DELETE", "PUT", "POST", "PATCH", "CONNECT"]
 _http_method = '|'.join(_http_methods)
@@ -59,7 +62,7 @@ def find_last_log(config: dict) -> LogFile:
                 last_log = LogFile(date=date, path=str(path))
     return last_log
 
-def report_exists(config: dict, last_log: LogFile) -> bool:
+def report_exists(last_log: LogFile) -> bool:
     """
     Проверяет выполнены ли отчет по этому логу ранее
     """
@@ -146,7 +149,7 @@ def prepare_stat_table(log_data: dict) -> list[dict]:
     all_requests_times = [sum(v) for v in log_data.values()]  # Суммарное время всех запросов
     all_requests_time = sum(all_requests_times)
     stat = [calculate_row(item) for item in log_data.items()]
-    stat = sorted(stat, key=lambda x: x['count'], reverse=True)
+    stat = sorted(stat, key=lambda x: x['count'], reverse=True)  # TODO: сортировка по набиольшему time_sum
     return stat
 
 
@@ -154,12 +157,13 @@ def make_html_report(stat: list[dict], config: dict, last_log: LogFile):
     """
     Генерирует HTML отчет
     """
+    report_size = config.get("REPORT_SIZE", 1_000)
     path = get_report_path(last_log=last_log)
     copy_js_script(config=config)
     with open("report_template.html", encoding="UTF-8") as template:
         with open(path, "w", encoding="UTF-8") as new_report:
             template = template.read()
-            output = Template(template).safe_substitute({"table_json": stat})
+            output = Template(template).safe_substitute({"table_json": stat[:report_size]})
             new_report.write(output)
 
 
