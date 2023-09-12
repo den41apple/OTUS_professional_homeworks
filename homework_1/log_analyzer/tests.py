@@ -1,7 +1,7 @@
 import unittest
 from pathlib import Path
 
-from .log_analyzer import find_last_log, get_config, config
+from log_analyzer import find_last_log, get_config, config
 
 
 class Tests(unittest.TestCase):
