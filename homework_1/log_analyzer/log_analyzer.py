@@ -12,6 +12,7 @@ import os
 import shutil
 import gzip
 import re
+import sys
 from configparser import ConfigParser
 from statistics import mean, median
 from string import Template
@@ -19,8 +20,6 @@ from collections import namedtuple
 from datetime import datetime
 from pathlib import Path
 
-logging.basicConfig(format="[%(asctime)s] %(levelname).1s %(message)s",
-                    datefmt="%Y.%m.%d %H:%M:%S")
 argument_parser = argparse.ArgumentParser()
 argument_parser.add_argument("--config", help="Путь до файла ini  с конфигурацией")
 
@@ -29,17 +28,34 @@ config = {
     "REPORT_DIR": "./reports",
     "LOG_DIR": "./log"
 }
+# Допустимый процент ошибок
+ERRORS_PERCENT = 30
+# Путь к конфигурационному файлу по умолчанию
+DEFAULT_CONFIG_FILE_PATH = "./config.ini"
 
 # Паттерны
 _http_methods = ["GET", "POST", "HEAD", "OPTIONS", "TRACE", "DELETE", "PUT", "POST", "PATCH", "CONNECT"]
 _http_method = '|'.join(_http_methods)
 _http_method = rf"(?:{_http_method})"
 _url = rf'"{_http_method} ([\w\W]+) HTTP'
-url_pattern = re.compile(_url)
-request_time_pattern = re.compile(r"\d*\.\d*$")
-filename_pattern = re.compile(r"nginx-access-ui\.log-(\d{8})(?:.gz)*$")
+url_pattern = re.compile(_url)  # URL
+request_time_pattern = re.compile(r"\d*\.\d*$")  # Время запроса
+filename_pattern = re.compile(r"nginx-access-ui\.log-(\d{8})(?:.gz)*$")  # Валидное имя файла лога
 
 LogFile = namedtuple('LogFile', ["date", "path"])
+
+
+def configure_logging():
+    """
+    Конфигурирование логиррования
+    """
+    config = get_config()
+    kwargs = dict(format="[%(asctime)s] %(levelname).1s %(message)s",
+                  datefmt="%Y.%m.%d %H:%M:%S")
+    log_file = config.get("LOGING_FILE")
+    if log_file:
+        kwargs.update(filename=log_file)
+    logging.basicConfig(**kwargs, encoding="UTF-8")
 
 
 def get_configparser() -> ConfigParser:
@@ -54,16 +70,34 @@ def read_config_from_cli() -> dict:
     Читает конфигурацию из файла
     переданного в командную строку
     """
-    configparser = get_configparser()
     args = argument_parser.parse_args()
     config_path = args.config
     if config_path is not None:
-        configparser.read(config_path, encoding='UTF-8')
-        new_config = dict(configparser['CONFIG'])
+        new_config = read_config_by_path(path=config_path)
         if "REPORT_SIZE" in new_config:
             new_config['REPORT_SIZE'] = int(new_config['REPORT_SIZE'])
         return new_config
-    return {}
+    else:
+        return read_default_config()
+
+
+def read_config_by_path(path: str) -> dict:
+    """
+    Читает конфигурацию по заданному пути
+    """
+    configparser = get_configparser()
+    configparser.read(path, encoding='UTF-8')
+    return dict(configparser['CONFIG'])
+
+
+def read_default_config() -> dict:
+    """
+    Читает конфигурацию расположенному по дефолтному пути
+    """
+    try:
+        return read_config_by_path(DEFAULT_CONFIG_FILE_PATH)
+    except:
+        return {}
 
 
 def get_config() -> dict:
@@ -147,7 +181,9 @@ def read_lines(log_path):
     finally:
         log.close()
     if missing_rows:
-        logging.error(f"{missing_rows} строк пропущено, они имели неверный формат")
+        errors_percent = missing_rows / gather_log_data.total_rows * 100
+        if errors_percent >= ERRORS_PERCENT:
+            logging.error(f"Большое количество ({errors_percent:.2f} %) строк пропущено, они имели неверный формат")
     gather_log_data.total_rows = i + 1
 
 
@@ -236,12 +272,15 @@ def pipeline():
     stat = prepare_stat_table(log_data)
     write_html_report(stat=stat, config=config, last_log=last_log)
 
+
 def main():
     try:
         pipeline()
     except Exception as err:
         logging.exception(err, exc_info=True)
 
+
+configure_logging()
 
 if __name__ == "__main__":
     main()
