@@ -94,10 +94,11 @@ def read_default_config() -> dict:
     """
     Читает конфигурацию расположенному по дефолтному пути
     """
-    try:
-        return read_config_by_path(DEFAULT_CONFIG_FILE_PATH)
-    except:
+    default_config_path = Path(DEFAULT_CONFIG_FILE_PATH)
+    if not default_config_path.exists():
+        # Если конфига по умолчанию нет -> выходим без ошибки
         return {}
+    return read_config_by_path(DEFAULT_CONFIG_FILE_PATH)
 
 
 def get_config() -> dict:

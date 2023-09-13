@@ -11,6 +11,5 @@ python -m log_analyzer --config config.ini
 ```
 
 ### Тестирование
-```angular2html
 python -m unittest
 ```
