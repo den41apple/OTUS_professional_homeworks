@@ -62,11 +62,10 @@ def memo(func: Callable) -> Callable:
         if existing_result is not None:
             # Если есть - вернем результат
             return existing_result
-        else:
-            # Если нет - сохраним в кеш и запустим функцию
-            result = func(*args, **kwargs)
-            cache[args] = result
-            return result
+        # Если нет - сохраним в кеш и запустим функцию
+        result = func(*args, **kwargs)
+        cache[args] = result
+        return result
 
     return wrapper
 
@@ -78,7 +77,7 @@ def n_ary(func: Callable) -> Callable:
     """
 
     @wraps(func)
-    def wrapper(x, *args, **kwargs):
+    def wrapper(x, *args):
         return x if not args else func(x, wrapper(*args))
 
     return wrapper
