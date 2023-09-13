@@ -14,6 +14,7 @@ def disable(func: Callable) -> Callable:
 
     """
 
+    @wraps(func)
     def wrapper(*args, **kwargs) -> Any:
         return func(*args, **kwargs)
 
@@ -53,6 +54,7 @@ def memo(func: Callable) -> Callable:
     Memoize a function so that it caches all return values for
     faster future lookups.
     """
+
     cache = {}
 
     @wraps(func)
