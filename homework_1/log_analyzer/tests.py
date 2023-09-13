@@ -1,9 +1,10 @@
+import sys
 import unittest
 from datetime import datetime
 from pathlib import Path
 
-from log_analyzer import (find_last_log, config, create_report_folders_tree_is_not_exists, write_html_report, LogFile,
-                          get_report_path)
+from log_analyzer import (find_last_log, config, create_report_folders_tree_is_not_exists,
+                          write_html_report, LogFile, get_report_path)
 
 
 class Tests(unittest.TestCase):
@@ -42,8 +43,6 @@ class Tests(unittest.TestCase):
             self.assertTrue(catalog_path.exists(), "Не создается древо каталогов")
         finally:
             self._delete_folders_tree(catalog_path)
-
-
 
     def test_write_html_report(self):
         """

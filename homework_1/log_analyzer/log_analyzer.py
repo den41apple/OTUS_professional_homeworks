@@ -34,7 +34,8 @@ ERRORS_PERCENT = 30
 DEFAULT_CONFIG_FILE_PATH = "./config.ini"
 
 # Паттерны
-_http_methods = ["GET", "POST", "HEAD", "OPTIONS", "TRACE", "DELETE", "PUT", "POST", "PATCH", "CONNECT"]
+_http_methods = ["GET", "POST", "HEAD", "OPTIONS", "TRACE",
+                 "DELETE", "PUT", "POST", "PATCH", "CONNECT"]
 _http_method = '|'.join(_http_methods)
 _http_method = rf"(?:{_http_method})"
 _url = rf'"{_http_method} ([\w\W]+) HTTP'
@@ -50,8 +51,8 @@ def configure_logging():
     Конфигурирование логиррования
     """
     config = get_config()
-    kwargs = dict(format="[%(asctime)s] %(levelname).1s %(message)s",
-                  datefmt="%Y.%m.%d %H:%M:%S")
+    kwargs = {"format": "[%(asctime)s] %(levelname).1s %(message)s",
+              "datefmt": "%Y.%m.%d %H:%M:%S"}
     log_file = config.get("LOGING_FILE")
     if log_file:
         kwargs.update(filename=log_file)
@@ -77,8 +78,7 @@ def read_config_from_cli() -> dict:
         if "REPORT_SIZE" in new_config:
             new_config['REPORT_SIZE'] = int(new_config['REPORT_SIZE'])
         return new_config
-    else:
-        return read_default_config()
+    return read_default_config()
 
 
 def read_config_by_path(path: str) -> dict:
@@ -159,7 +159,7 @@ def parse_row(row: str):
 
 
 def read_lines(log_path):
-    log = gzip.open(log_path, 'rb') if log_path.endswith(".gz") else open(log_path)
+    log = gzip.open(log_path, 'rb') if log_path.endswith(".gz") else open(log_path, encoding="UTF-8")
     i = 0
     missing_rows = 0
     try:
@@ -183,7 +183,8 @@ def read_lines(log_path):
     if missing_rows:
         errors_percent = missing_rows / gather_log_data.total_rows * 100
         if errors_percent >= ERRORS_PERCENT:
-            logging.error(f"Большое количество ({errors_percent:.2f} %) строк пропущено, они имели неверный формат")
+            logging.error(f"Большое количество ({errors_percent:.2f} %) "
+                          f"строк пропущено, они имели неверный формат")
     gather_log_data.total_rows = i + 1
 
 
@@ -264,10 +265,14 @@ def copy_js_script(config: dict):
 
 
 def pipeline():
+    """
+    Порядок работы приложения
+    """
     config = get_config()
     last_log = find_last_log(config=config)
     if report_exists(last_log=last_log):
-        return logging.error(f'Отчет "{get_report_path(last_log)}" уже существует')
+        report_path = get_report_path(last_log)
+        return logging.error(f'Отчет "{report_path}" уже существует')
     log_data = gather_log_data(log_path=last_log.path)
     stat = prepare_stat_table(log_data)
     write_html_report(stat=stat, config=config, last_log=last_log)
