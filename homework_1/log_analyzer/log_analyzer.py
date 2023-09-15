@@ -58,6 +58,11 @@ def configure_logging(cl_args: argparse.Namespace):
     logging.basicConfig(**kwargs, encoding="UTF-8")
 
 
+def parse_args() -> argparse.Namespace:
+    """Парсинг аргуметнов из командной строки"""
+    return argument_parser.parse_args()
+
+
 def get_configparser() -> ConfigParser:
     """
     Инициализирует объект чтения конфига
@@ -280,7 +285,7 @@ def copy_js_script(config: dict):
 
 def main():
     try:
-        cl_args = argument_parser.parse_args()
+        cl_args = parse_args()
         configure_logging(cl_args=cl_args)
         config = get_config(cl_args=cl_args)
         last_log = find_last_log(config=config)
