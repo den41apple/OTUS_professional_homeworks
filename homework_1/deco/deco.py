@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from typing import Callable, Any
-from functools import wraps
+from functools import wraps, update_wrapper
 
 
 def disable(func: Callable) -> Callable:
@@ -21,29 +21,43 @@ def disable(func: Callable) -> Callable:
     return wrapper
 
 
-def decorator(func: Callable) -> Callable:
+def decorator(deco_func: Callable) -> Callable:
     """
     Decorate a decorator so that it inherits the docstrings
     and stuff from the function it's decorating.
     """
 
-    @wraps(func)
-    def wrapper(*args, **kwargs) -> Any:
-        return func(*args, **kwargs)
+    def wrapper(func: Callable) -> Any:
+        # Не сработало с countcalls так же как и @wraps
+        return update_wrapper(deco_func(func), func)
 
     return wrapper
 
 
+class Counter:
+    """Счетчик"""
+    cnt = 0
+
+    def __add__(self, other: int) -> int:
+        self.cnt += other
+        return self
+
+    def __str__(self):
+        return str(self.cnt)
+
+    def __repr__(self):
+        return str(self)
+
+
+@decorator
 def countcalls(func: Callable) -> Callable:
     """
     Decorator that counts calls made to the function decorated.
     """
-    func.calls = 0
+    func.calls = Counter()
 
-    @wraps(func)
     def wrapper(*args, **kwargs) -> Any:
-        wrapper.calls = getattr(wrapper, 'calls', 0) + 1
-        func.calls = getattr(func, 'calls', 0) + 1
+        wrapper.calls += 1
         return func(*args, **kwargs)
 
     return wrapper
@@ -154,7 +168,7 @@ def main():
     print(foo(4, 3))
     print(foo(4, 3, 2))
     print(foo(4, 3))
-    print("foo was called", foo.calls, "times")  # Не работает, когда countcalls не последняя при декорировании
+    print("foo was called", foo.calls, "times")
 
     print(bar(4, 3))
     print(bar(4, 3, 2))

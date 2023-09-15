@@ -12,7 +12,6 @@ import os
 import shutil
 import gzip
 import re
-import sys
 from configparser import ConfigParser
 from statistics import mean, median
 from string import Template
@@ -46,11 +45,11 @@ filename_pattern = re.compile(r"nginx-access-ui\.log-(\d{8})(?:.gz)*$")  # Ва�
 LogFile = namedtuple('LogFile', ["date", "path"])
 
 
-def configure_logging():
+def configure_logging(cl_args: argparse.Namespace):
     """
-    Конфигурирование логиррования
+    Конфигурирование логирования
     """
-    config = get_config()
+    config = get_config(cl_args=cl_args)
     kwargs = {"format": "[%(asctime)s] %(levelname).1s %(message)s",
               "datefmt": "%Y.%m.%d %H:%M:%S"}
     log_file = config.get("LOGING_FILE")
@@ -60,19 +59,21 @@ def configure_logging():
 
 
 def get_configparser() -> ConfigParser:
+    """
+    Инициализирует объект чтения конфига
+    """
     configparser = ConfigParser()
     # Что бы Ключи в нижний регистр не приводил
     configparser.optionxform = str
     return configparser
 
 
-def read_config_from_cli() -> dict:
+def read_config_from_cli(cl_args: argparse.Namespace) -> dict:
     """
     Читает конфигурацию из файла
     переданного в командную строку
     """
-    args = argument_parser.parse_args()
-    config_path = args.config
+    config_path = cl_args.config
     if config_path is not None:
         new_config = read_config_by_path(path=config_path)
         if "REPORT_SIZE" in new_config:
@@ -101,11 +102,11 @@ def read_default_config() -> dict:
     return read_config_by_path(DEFAULT_CONFIG_FILE_PATH)
 
 
-def get_config() -> dict:
+def get_config(cl_args: argparse.Namespace) -> dict:
     """Формирует конфигурацию"""
     default_config = config.copy()
     try:
-        cli_config = read_config_from_cli()
+        cli_config = read_config_from_cli(cl_args=cl_args)
     except Exception as err:
         logging.error(err, exc_info=True)
         raise err
@@ -160,6 +161,9 @@ def parse_row(row: str):
 
 
 def read_lines(log_path):
+    """
+    Генератор для парсинга данных построчно
+    """
     log = gzip.open(log_path, 'rb') if log_path.endswith(".gz") else open(log_path, encoding="UTF-8")
     i = 0
     missing_rows = 0
@@ -179,6 +183,8 @@ def read_lines(log_path):
                 yield addr, time
             else:
                 missing_rows += 1
+    except:
+        pass
     finally:
         log.close()
     if missing_rows:
@@ -190,6 +196,9 @@ def read_lines(log_path):
 
 
 def gather_log_data(log_path: str) -> list[dict]:
+    """
+    Собирает данные из лога в нужную структуру
+    """
     log_data = {}
     gather_log_data.total_rows = 0
     for addr, time in read_lines(log_path):
@@ -246,13 +255,17 @@ def write_html_report(stat: list[dict], config: dict, last_log: LogFile):
     report_size = config.get("REPORT_SIZE", 1_000)
     path = get_report_path(last_log=last_log)
     create_report_folders_tree_is_not_exists(report_path=path)
-    copy_js_script(config=config)
     report_template_path = Path(__file__).parent / "report_template.html"
-    with open(report_template_path, encoding="UTF-8") as template:
-        with open(path, "w", encoding="UTF-8") as new_report:
-            template = template.read()
-            output = Template(template).safe_substitute({"table_json": stat[:report_size]})
-            new_report.write(output)
+    try:
+        copy_js_script(config=config)
+        with open(report_template_path, encoding="UTF-8") as template:
+            with open(path, "w", encoding="UTF-8") as new_report:
+                template = template.read()
+                output = Template(template).safe_substitute({"table_json": stat[:report_size]})
+                new_report.write(output)
+    except IOError as err:
+        logging.exception("Произошла ошибка при сохранении HTML отчета", exc_info=True)
+        raise err
 
 
 def copy_js_script(config: dict):
@@ -265,28 +278,21 @@ def copy_js_script(config: dict):
     shutil.copy2(copy_from, copy_to)
 
 
-def pipeline():
-    """
-    Порядок работы приложения
-    """
-    config = get_config()
-    last_log = find_last_log(config=config)
-    if report_exists(last_log=last_log):
-        report_path = get_report_path(last_log)
-        return logging.error(f'Отчет "{report_path}" уже существует')
-    log_data = gather_log_data(log_path=last_log.path)
-    stat = prepare_stat_table(log_data)
-    write_html_report(stat=stat, config=config, last_log=last_log)
-
-
 def main():
     try:
-        pipeline()
+        cl_args = argument_parser.parse_args()
+        configure_logging(cl_args=cl_args)
+        config = get_config(cl_args=cl_args)
+        last_log = find_last_log(config=config)
+        if report_exists(last_log=last_log):
+            report_path = get_report_path(last_log)
+            return logging.error(f'Отчет "{report_path}" уже существует')
+        log_data = gather_log_data(log_path=last_log.path)
+        stat = prepare_stat_table(log_data)
+        write_html_report(stat=stat, config=config, last_log=last_log)
     except Exception as err:
         logging.exception(err, exc_info=True)
 
-
-configure_logging()
 
 if __name__ == "__main__":
     main()
