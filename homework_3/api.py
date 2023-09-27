@@ -65,6 +65,24 @@ class FieldBase:
     def value(self, value):
         self._value = self.validate(value)
 
+    def __get__(self, instance, owner):
+        return self._value
+
+    def __set__(self, instance, value):
+        self.value = value
+
+    def __add__(self, other) -> Any:
+        result = self.value
+        if hasattr(other, "value"):
+            result = result + other.value
+        else:
+            result = result + other
+        return result
+
+    def __eq__(self, other):
+        _other = other.value if hasattr(other, "value") else other
+        return self.value == _other
+
     def __str__(self):
         return repr(self._value)
 
@@ -197,7 +215,6 @@ class RequestMeta(type):
         for key, value in attrs.items():
             if isinstance(value, FieldBase):
                 _fields[key] = value
-                _attrs.pop(key)
         _attrs['_fields'] = _fields
         new_class = super().__new__(cls, name, bases, _attrs)
         return new_class
@@ -210,15 +227,14 @@ class RequestBase(metaclass=RequestMeta):
         # Установим атрибуты
         for attr_name, instance in self._fields.items():
             value = kwargs.get(attr_name)
-            instance.name = attr_name
-            instance.value = value
             setattr(self, attr_name, value)
+            setattr(self, f"{attr_name}.value", value)
 
     def validate(self):
         errors_fields = []
         for field_name, field in self._fields.items():
             value = getattr(self, field_name)
-            if value is None and (field.nullable is False or field.required is True):
+            if value is None and field.required is True or field.nullable is False and not value:
                 errors_fields.append(field_name)
         if errors_fields:
             raise ValueError(f'Поле(я) "{", ".join(errors_fields)}" необходимо(ы) и не должно(ы) быть None')
@@ -284,15 +300,15 @@ def online_score_handler(request: MethodRequest,
         return {'score': score}, OK
     arguments = request.arguments or {}
     try:
-        r = OnlineScoreRequest(**arguments)
-        r.validate()
+        request = OnlineScoreRequest(**arguments)
+        request.validate()
     except ValueError as err:
         return {
             'code': INVALID_REQUEST,
             'error': str(err)
         }, INVALID_REQUEST
     ctx['has'] = arguments.keys()
-    score = get_score(store, **r.dict())
+    score = get_score(store, **request.dict())
     return {'score': score}, OK
 
 
