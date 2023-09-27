@@ -71,14 +71,6 @@ class FieldBase:
     def __repr__(self):
         return str(self)
 
-    def __get__(self, instance, owner):
-        # Не работает почему-то
-        return self.value
-
-    def __set__(self, instance, value):
-        # Не работает почему-то
-        self.value = value
-
 
 class CharField(FieldBase):
     """Строковое поле"""
@@ -110,9 +102,7 @@ class EmailField(CharField):
     def validate(self, value: str | None) -> str | None:
         value = super().validate(value)
         if value is not None:
-            if not isinstance(value, str):
-                raise ValueError("E-mail должен быть строкой")
-            if not "@" in value:
+            if "@" not in value:
                 raise ValueError("Неверный формат e-mail")
             return self._value
 
@@ -169,8 +159,8 @@ class GenderField(FieldBase):
     """
 
     def validate(self, value: int | None) -> int:
+        value = super().validate(value)
         if value is not None:
-            value = super().validate(value)
             if not isinstance(value, int):
                 raise ValueError("Пол должен быть целым числом")
             if value not in GENDERS:
@@ -183,8 +173,8 @@ class ClientIDsField(FieldBase):
     """Массив чисел"""
 
     def validate(self, value: list[int] | None) -> list[int] | None:
+        value = super().validate(value)
         if value is not None:
-            value = super().validate(value)
             if not isinstance(value, list):
                 raise ValueError("Должно быть массивом")
             [self._check(el) for el in value]
