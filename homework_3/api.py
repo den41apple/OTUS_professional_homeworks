@@ -47,7 +47,7 @@ class FieldBase:
     def __init__(self, required: bool = True, nullable: bool = False):
         self.required = required
         self.nullable = nullable
-        self._value = None
+        self.value = None
         self.name = None  # Имя поля
 
     def validate(self, value) -> Any:
@@ -57,19 +57,11 @@ class FieldBase:
             raise ValueError(f'Поле {self.name} должно быть не пустым')
         return value
 
-    @property
-    def value(self):
-        return self._value
-
-    @value.setter
-    def value(self, value):
-        self._value = self.validate(value)
-
     def __get__(self, instance, owner):
-        return self._value
+        return self.value
 
     def __set__(self, instance, value):
-        self.value = value
+        self.value = self.validate(value)
 
     def __add__(self, other) -> Any:
         result = self.value
@@ -84,7 +76,7 @@ class FieldBase:
         return self.value == _other
 
     def __str__(self):
-        return repr(self._value)
+        return repr(self.value)
 
     def __repr__(self):
         return str(self)
@@ -246,6 +238,7 @@ class RequestBase(metaclass=RequestMeta):
 class ClientsInterestsRequest(RequestBase):
     client_ids = ClientIDsField(required=True)
     date = DateField(required=False, nullable=True)
+
 
 
 class OnlineScoreRequest(RequestBase):
