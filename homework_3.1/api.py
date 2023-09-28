@@ -14,6 +14,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any, Type
 
 from scoring import get_score, get_interests
+from store import Store
 
 SALT = "Otus"
 ADMIN_LOGIN = "admin"
@@ -47,7 +48,7 @@ class FieldBase:
     def __init__(self, required: bool = True, nullable: bool = False):
         self.required = required
         self.nullable = nullable
-        self._value = None
+        self.value = None
         self.name = None  # Имя поля
 
     def validate(self, value) -> Any:
@@ -57,19 +58,11 @@ class FieldBase:
             raise ValueError(f'Поле {self.name} должно быть не пустым')
         return value
 
-    @property
-    def value(self):
-        return self._value
-
-    @value.setter
-    def value(self, value):
-        self._value = self.validate(value)
-
     def __get__(self, instance, owner):
-        return self._value
+        return self.value
 
     def __set__(self, instance, value):
-        self.value = value
+        self.value = self.validate(value)
 
     def __add__(self, other) -> Any:
         result = self.value
@@ -84,7 +77,7 @@ class FieldBase:
         return self.value == _other
 
     def __str__(self):
-        return repr(self._value)
+        return repr(self.value)
 
     def __repr__(self):
         return str(self)
@@ -227,6 +220,7 @@ class RequestBase(metaclass=RequestMeta):
         # Установим атрибуты
         for attr_name, instance in self._fields.items():
             value = kwargs.get(attr_name)
+            self._fields[attr_name].value = value
             setattr(self, attr_name, value)
             setattr(self, f"{attr_name}.value", value)
 
@@ -246,6 +240,9 @@ class RequestBase(metaclass=RequestMeta):
 class ClientsInterestsRequest(RequestBase):
     client_ids = ClientIDsField(required=True)
     date = DateField(required=False, nullable=True)
+
+
+
 
 
 class OnlineScoreRequest(RequestBase):
@@ -291,10 +288,12 @@ def check_auth(request: MethodRequest):
 
 def online_score_handler(request: MethodRequest,
                          ctx: dict,
-                         store) -> tuple[dict, int]:
+                         store: Store) -> tuple[dict, int]:
     """
     Обработчик "online_score"
     """
+    if not isinstance(store, Store):
+        store = Store()
     if request.is_admin:
         score = 42
         return {'score': score}, OK
@@ -314,7 +313,7 @@ def online_score_handler(request: MethodRequest,
 
 def clients_interests_handler(request: MethodRequest,
                               ctx: dict,
-                              store) -> tuple[dict, int]:
+                              store: Store) -> tuple[dict, int]:
     """
     Обработчик "clients_interests"
     """
@@ -329,7 +328,7 @@ def clients_interests_handler(request: MethodRequest,
         }, INVALID_REQUEST
     interests = {}
     for client_id in request.client_ids:
-        interests[f'client_id{client_id}'] = get_interests('nowhere_store',
+        interests[f'client_id{client_id}'] = get_interests(store,
                                                            client_id)
     ctx["nclients"] = len(arguments.get("client_ids", []))
     return interests, OK
@@ -337,7 +336,7 @@ def clients_interests_handler(request: MethodRequest,
 
 def method_handler(request: dict,
                    ctx: dict,
-                   store) -> tuple[dict, int]:
+                   store: Store) -> tuple[dict, int]:
     response, code = None, None
     methods = {'clients_interests': clients_interests_handler,
                'online_score': online_score_handler}
@@ -367,7 +366,7 @@ class MainHTTPHandler(BaseHTTPRequestHandler):
     router = {
         "method": method_handler
     }
-    store = None
+    store = Store()
 
     def get_request_id(self, headers):
         return headers.get('HTTP_X_REQUEST_ID', uuid.uuid4().hex)
