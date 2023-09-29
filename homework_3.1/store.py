@@ -6,6 +6,7 @@ from typing import Any, Callable
 
 import redis
 
+
 def retry(num_retries: int) -> Callable:
     def decorator(func: Callable) -> Callable:
         @wraps(func)
@@ -14,7 +15,7 @@ def retry(num_retries: int) -> Callable:
                 try:
                     result = func(*args, **kwargs)
                     return result
-                except (TimeoutError, ConnectionError) as err:
+                except (TimeoutError, ConnectionError):
                     pass
             raise ConnectionError(f"Соединение прервано после {num_retries} попыток")
 

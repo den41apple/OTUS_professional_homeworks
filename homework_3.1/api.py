@@ -45,7 +45,7 @@ GENDERS = {
 class FieldBase:
     """Базовый класс"""
 
-    def __init__(self, required: bool = True, nullable: bool = False):
+    def __init__(self, required: bool = False, nullable: bool = True):
         self.required = required
         self.nullable = nullable
         self.value = None
@@ -240,9 +240,6 @@ class RequestBase(metaclass=RequestMeta):
 class ClientsInterestsRequest(RequestBase):
     client_ids = ClientIDsField(required=True)
     date = DateField(required=False, nullable=True)
-
-
-
 
 
 class OnlineScoreRequest(RequestBase):
