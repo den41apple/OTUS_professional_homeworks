@@ -30,22 +30,27 @@ class RedisClient:
                  host: str = "localhost",
                  port: int = 6379,
                  db: int = 0,
-                 timeout: int = 3):
+                 timeout: int = 2,
+                 client=None,
+                 client_kwargs: dict = None):
         self._host = host
         self._port = port
         self._db = db
         self._timeout = timeout
-        self._client = None
+        self._client = client or redis.Redis
+        self._client_kwargs = client_kwargs or {}
         self._make_client()
 
     def _make_client(self) -> redis.Redis:
         """Создание клиента"""
-        self._client = redis.Redis(host=self._host,
-                                   port=self._port,
-                                   db=self._db,
-                                   socket_connect_timeout=self._timeout,
-                                   socket_timeout=self._timeout,
-                                   decode_responses=True)
+        client_kwargs = {"host": self._host,
+                         "port": self._port,
+                         "db": self._db,
+                         "socket_connect_timeout": self._timeout,
+                         "socket_timeout": self._timeout,
+                         "decode_responses": True}
+        client_kwargs.update(self._client_kwargs)
+        self._client = self._client(**client_kwargs)
         return self._client
 
     def set(self, key, value, expires: int = None) -> None:
@@ -70,41 +75,44 @@ class RedisClient:
 
 
 class Store:
-    max_retries = 5
+    max_retries = 3
 
-    def __init__(self):
-        self._storage = RedisClient()
-
-    @retry(max_retries)
-    def get(self, key, use_cache_if_error=True):
+    def __init__(self, storage=None):
         """
-        Получение значения из кеша по ключу
+        Параметры:
+        ----------
+            storage - Клиент Redis
         """
-        if use_cache_if_error:
-            try:
-                return self._storage.get(key)
-            except:
-                return self.cache_get(key)
-        else:
-            return self._storage.get(key)
+        self._storage = storage or RedisClient()
 
     @retry(max_retries)
-    def set(self, key, value):
-        """
-        Установка значения
-        """
-        return self._storage.set(key, value)
-
-    @retry(max_retries)
-    def cache_get(self, key):
+    def get(self, key):
         """
         Получение значения из кеша по ключу
         """
         return self._storage.get(key)
 
     @retry(max_retries)
+    def set(self, key, value, expires: int = None):
+        """
+        Установка значения
+        """
+        return self._storage.set(key, value, expires=expires)
+
+    def cache_get(self, key):
+        """
+        Получение значения из кеша по ключу
+        """
+        try:
+            return self.get(key)
+        except ConnectionError:
+            pass
+
     def cache_set(self, key, value, expires: int = None):
         """
         Установка значения в кеш
         """
-        self._storage.set(key, value, expires)
+        try:
+            self.set(key, value, expires)
+        except ConnectionError:
+            pass

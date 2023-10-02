@@ -40,28 +40,34 @@ GENDERS = {
     MALE: "male",
     FEMALE: "female",
 }
+# Значение - заглушка для определения незаполненного значения
+NOT_EXISTS_VALUE = ...
 
 
 class FieldBase:
     """Базовый класс"""
 
-    def __init__(self, required: bool = False, nullable: bool = True):
+    def __init__(self, required: bool = False, nullable: bool = False):
         self.required = required
         self.nullable = nullable
-        self.value = None
+        self.value = NOT_EXISTS_VALUE
         self.name = None  # Имя поля
 
     def validate(self, value) -> Any:
-        if self.required and value is None:
-            raise ValueError(f'Поле {self.name} обязательно')
-        if not self.nullable and not value:
-            raise ValueError(f'Поле {self.name} должно быть не пустым')
+        if self.required and value is NOT_EXISTS_VALUE:
+            raise ValueError(f'Поле "{self.name}" обязательно')
+        if not self.nullable and value is None:
+            raise ValueError(f'Поле "{self.name}" должно быть не пустым')
+        if value is NOT_EXISTS_VALUE:
+            value = None
         return value
 
     def __get__(self, instance, owner):
         return self.value
 
     def __set__(self, instance, value):
+        if hasattr(instance, "_curr_field_name"):
+            self.name = instance._curr_field_name
         self.value = self.validate(value)
 
     def __add__(self, other) -> Any:
@@ -91,8 +97,8 @@ class CharField(FieldBase):
         if value is not None:
             if not isinstance(value, str):
                 raise ValueError("Должно быть строкой")
-            self._value = value
-            return self._value
+        self.value = value
+        return self.value
 
 
 class ArgumentsField(FieldBase):
@@ -103,19 +109,19 @@ class ArgumentsField(FieldBase):
         if value is not None:
             if not isinstance(value, dict):
                 raise ValueError("Должно быть словарем")
-            self._value = value
-            return self._value
+        self.value = value
+        return self.value
 
 
 class EmailField(CharField):
     """Строка, в которой есть @"""
 
     def validate(self, value: str | None) -> str | None:
-        value = super().validate(value)
-        if value is not None:
+        self.value = super().validate(value)
+        if self.value:
             if "@" not in value:
                 raise ValueError("Неверный формат e-mail")
-            return self._value
+        return self.value
 
 
 class PhoneField(FieldBase):
@@ -126,13 +132,13 @@ class PhoneField(FieldBase):
 
     def validate(self, value: str | int | None) -> str | None:
         value = super().validate(value)
-        if value is not None:
+        if value:
             value = str(value)
             values = self.__pattern.findall(value)
             if len(values) != 1:
                 raise ValueError("Номер телефона должен быть в формате 7ХХХХХХХХХХ")
-            self._value = values[0]
-            return self._value
+            self.value = value = values[0]
+        return value
 
 
 class DateField(FieldBase):
@@ -140,12 +146,12 @@ class DateField(FieldBase):
 
     def validate(self, value: str | None) -> Type[datetime.datetime] | None:
         value = super().validate(value)
-        if value is not None:
+        if value:
             try:
-                self._value = datetime.datetime.strptime(value, "%d.%m.%Y").date()
+                self.value = value = datetime.datetime.strptime(value, "%d.%m.%Y").date()
             except ValueError as err:
                 raise ValueError("Дата должна быть в формате DD.MM.YYYY") from err
-            return self._value
+        return value
 
 
 class BirthDayField(DateField):
@@ -154,14 +160,14 @@ class BirthDayField(DateField):
     """
 
     def validate(self, value: str | None) -> Type[datetime.datetime] | None:
-        if value is not None:
+        if value is not None and value is not NOT_EXISTS_VALUE:
             value: datetime = super().validate(value)
             today = datetime.datetime.today().date()
             diff_years = (today - value).days / 365
             if diff_years > 70:
                 raise ValueError("Со дня рождения не должно пройти более 70 лет")
-            self._value = value
-            return self._value
+            self.value = value
+        return value
 
 
 class GenderField(FieldBase):
@@ -176,8 +182,8 @@ class GenderField(FieldBase):
                 raise ValueError("Пол должен быть целым числом")
             if value not in GENDERS:
                 raise ValueError("Неверное значение пола")
-            self._value = value
-            return self._value
+            self.value = value
+        return value
 
 
 class ClientIDsField(FieldBase):
@@ -189,8 +195,8 @@ class ClientIDsField(FieldBase):
             if not isinstance(value, list):
                 raise ValueError("Должно быть массивом")
             [self._check(el) for el in value]
-            self._value = value
-            return self._value
+            self.value = value
+        return value
 
     def _check(self, el):
         if not isinstance(el, int):
@@ -219,16 +225,20 @@ class RequestBase(metaclass=RequestMeta):
     def __init__(self, **kwargs):
         # Установим атрибуты
         for attr_name, instance in self._fields.items():
-            value = kwargs.get(attr_name)
+            value = kwargs.get(attr_name, NOT_EXISTS_VALUE)
+            self._curr_field_name = attr_name
             self._fields[attr_name].value = value
             setattr(self, attr_name, value)
             setattr(self, f"{attr_name}.value", value)
+            del self._curr_field_name
+        self.validate()
 
     def validate(self):
         errors_fields = []
         for field_name, field in self._fields.items():
             value = getattr(self, field_name)
-            if value is None and field.required is True or field.nullable is False and not value:
+            if ((value == NOT_EXISTS_VALUE and field.required is True)
+                    or (field.nullable is False and value is None)):
                 errors_fields.append(field_name)
         if errors_fields:
             raise ValueError(f'Поле(я) "{", ".join(errors_fields)}" необходимо(ы) и не должно(ы) быть None')
@@ -253,11 +263,12 @@ class OnlineScoreRequest(RequestBase):
     def validate(self):
         error_message = ("Необходима хотя бы одна пара из: "
                          "phone-email, first_name-last_name, gender-birthday")
-        if not (
-                (self.phone and self.email)
-                or (self.first_name and self.last_name)
-                or (self.birthday and self.gender in GENDERS)
-        ):
+        fields = self._fields
+        if not any((
+                (fields["phone"] != NOT_EXISTS_VALUE and fields["email"] != NOT_EXISTS_VALUE),
+                (fields["first_name"] != NOT_EXISTS_VALUE and fields["last_name"] != NOT_EXISTS_VALUE),
+                (fields["birthday"] != NOT_EXISTS_VALUE and fields["gender"] != NOT_EXISTS_VALUE)
+        )):
             raise ValueError(error_message)
 
 
@@ -297,7 +308,6 @@ def online_score_handler(request: MethodRequest,
     arguments = request.arguments or {}
     try:
         request = OnlineScoreRequest(**arguments)
-        request.validate()
     except ValueError as err:
         return {
             'code': INVALID_REQUEST,
@@ -317,7 +327,6 @@ def clients_interests_handler(request: MethodRequest,
     arguments = request.arguments or {}
     try:
         request = ClientsInterestsRequest(**arguments)
-        request.validate()
     except ValueError as err:
         return {
             'code': INVALID_REQUEST,
