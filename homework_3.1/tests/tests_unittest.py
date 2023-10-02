@@ -5,6 +5,12 @@ import hashlib
 import datetime
 import functools
 import unittest
+from pathlib import Path
+import sys
+
+home_dir = Path(__file__).parent.parent
+print(home_dir)
+sys.path.append(str(home_dir))
 
 import api
 

@@ -5,6 +5,7 @@ from store import Store
 
 def get_score(store: Store, phone, email, birthday=None, gender=None, first_name=None, last_name=None):
     keys = phone, email, birthday, gender, first_name, last_name
+    # Формирование ключа для кеширования в хранилище
     key = ','.join([str(el) for el in keys])
     score = store.cache_get(key) or 0
     score = float(score)
