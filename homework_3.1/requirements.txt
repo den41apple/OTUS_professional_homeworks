@@ -1,0 +1,3 @@
+redis[hiredis]
+pytest==7.4.2
+fakeredis==2.19.0
