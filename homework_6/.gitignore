@@ -1,0 +1,7 @@
+*.sqlite3
+.idea
+/media/
+/features.py
+/pg-data/
+/prestart.sh
+/uwsgi.ini

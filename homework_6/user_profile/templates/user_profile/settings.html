@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}
+    Settings
+{% endblock %}
+
+{% block body %}
+    <h3>Settings</h3>
+    <form class="mx-1 mx-md-4" method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <p>
+            <label for="id_avatar">Avatar:</label>
+        <div class="col">
+            <div class="row">
+                <img style="max-width: 7em;" class="rounded-5 mb-2"
+                        {% if request.user.profile.avatar %}
+                     src="{{ request.user.profile.avatar.url }}"
+                        {% else %}
+                     src="{% static "svg/person_square.svg" %}"
+                        {% endif %}
+                     alt="Пользователь">
+            </div>
+            <div class="row">
+                <input type="file" name="avatar" accept="image/*" id="id_avatar" control-id="ControlID-5">
+            </div>
+        </div>
+        </p>
+        <div class="d-flex justify-content-center mx-4 mb-3 mb-lg-4">
+            <input type="submit" class="btn btn-primary btn-lg" value="Save">
+        </div>
+    </form>
+{% endblock %}

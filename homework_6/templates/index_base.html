@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}
+    Home
+{% endblock %}
+
+{% block body %}
+
+
+
+    <ul class="list-group" style="max-width: 40em;">
+        {% for question in questions %}
+            <li class="list-group-item d-flex justify-content-between align-items-start">
+                <div class="">
+                    {# КО-ВО ГОЛОСОВ #}
+                    <span class="row badge bg-primary rounded-pill m-0">{{ question.vote_set.count }}</span>
+                    <span class="row m-0">Votes</span>
+                </div>
+                <div class="ms-2 me-3">
+                    {# КОЛ-ВО ОТВЕТОВ #}
+                    <span class="row badge bg-primary rounded-pill m-0">{{ question.answer_set.count }}</span>
+                    <span class="row m-0">Answers</span>
+                </div>
+                <div class="ms-2 me-auto">
+                    {# ЗАГОЛОВОК ВОПРОСА #}
+                    <div class="fw-bold"><a href="{% url 'qna:question' question.pk %}" class="nav-link">{{ question.title }}</a></div>
+                    <div>
+                        {# ТЭГИ #}
+                        {% for tag in question.tag.all %}
+                            <a href="{% url 'search:search' %}?q=tag:{{ tag.text }}" class="badge bg-primary-subtle nav-link nav-tabs">{{ tag }}</a>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div>
+                    <a href="#">{{ question.author.username }}</a>
+                    <div ><span >asked {{ question.created_at }}</span></div>
+                </div>
+            </li>
+        {% endfor %}
+    </ul>
+
+
+{% endblock %}
+
+ {% block pagination %}
+
+
+    {# ПАГИНАЦИЯ #}
+    <nav aria-label="..." class="mt-2">
+        <ul class="pagination">
+        {# PREVIOUS PAGE #}
+        {% if pages.previous_page %}
+        	<li class="page-item"><a class="page-link" href="{% url 'qna:index' %}?sort={{ sort_type }}&page={{ pages.previous_page }}" tabindex="-1">Previous</a>
+            {% else %}
+            <li class="page-item disabled"><a class="page-link" href="#" tabindex="-1" aria-disabled="true">Previous</a>
+        {% endif %}
+
+            </li>
+            {#ПЕРВАЯ СТРАНИЦА#}
+            {% if pages.first_page %}
+                <li class="page-item"><a class="page-link"
+                                         href="{% url 'qna:index' %}?sort={{ sort_type }}&page={{ pages.first_page }}">{{ pages.first_page }}</a>
+                </li>
+                <li class="page-item disabled"><span class="page-link">...</span></li>
+            {% endif %}
+
+            {% for page in pages.pages %}
+                {% if page.is_active %}
+                    <li class="page-item active" aria-current="page"><a class="page-link"
+                                                                        href="{% url 'qna:index' %}?sort={{ sort_type }}&page={{ page.number }}">{{ page.number }}</a>
+                    </li>
+                {% else %}
+                    <li class="page-item"><a class="page-link"
+                                             href="{% url 'qna:index' %}?sort={{ sort_type }}&page={{ page.number }}">{{ page.number }}</a>
+                    </li>
+                {% endif %}
+            {% endfor %}
+            {# ... #}
+
+            {% if pages.last_page or not pages.pages %}
+                <li class="page-item disabled"><span class="page-link" >...</span></li>
+            {% endif %}
+            {# ПОСЛЕДНЯЯ СТРАНИЦА #}
+            {% if pages.last_page %}
+                <li class="page-item"><a class="page-link"
+                                         href="{% url 'qna:index' %}?sort={{ sort_type }}&page={{ pages.last_page }}">{{ pages.last_page }}</a>
+                </li>
+            {% endif %}
+
+            {# NEXT PAGE #}
+        {% if pages.next_page %}
+        	<li class="page-item"><a class="page-link" href="{% url 'qna:index' %}?sort={{ sort_type }}&page={{ pages.next_page }}" tabindex="-1">Next</a>
+            {% else %}
+            <li class="page-item disabled"><a class="page-link" href="#" tabindex="-1" aria-disabled="true">Next</a>
+        {% endif %}
+
+        </ul>
+    </nav>
+        {% endblock %}

@@ -1,0 +1,112 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>
+        {% block title %}
+
+        {% endblock %}
+    </title>
+</head>
+<link rel="stylesheet" href="{% static "css/bootstrap.min.css" %}">
+<link rel="stylesheet" href="{% static "css/extended.css" %}">
+
+<body>
+<nav class="mb-2 px-2 navbar navbar-expand-lg bg-body-tertiary">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="{% url 'qna:index' %}">Hasker</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
+                data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent"
+                aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarSupportedContent">
+
+            <form class="d-flex me-auto mb-2" method="post" enctype="multipart/form-data"
+                  action="{% url 'search:search' %}">
+                {% csrf_token %}
+                <input class="form-control me-2" name="search_text" type="search" placeholder="Search"
+                       aria-label="Search" value="{{ search_text }}">
+                <button class="btn btn-outline-success" type="submit">Search</button>
+            </form>
+
+            <div class="row">
+                {% if request.user.is_authenticated %}
+                    <div class="col-1 me-3">
+                        <a class="" href="{% url 'user_profile:settings' %}">
+                            <img style="max-width: 2em;" class="rounded"
+                                    {% if request.user.profile.avatar %}
+                                 src="{{ request.user.profile.avatar.url }}"
+                                    {% else %}
+                                 src="{% static "svg/person_square.svg" %}"
+                                 width="35em"
+                                    {% endif %}
+                                 alt="Пользователь">
+                        </a>
+                    </div>
+                    <div class="col">
+                        <div class="row">
+                            <a class="" href="{% url 'user_profile:settings' %}">{{ request.user.username }}</a>
+                        </div>
+                        <div class="row">
+                            <a class="btn" href="{% url "site_auth:logout" %}"> <img width="30em" height="30em"
+                                                                                     src="{% static "svg/exit_button.svg" %}"
+                                                                                     alt="Выход"></a>
+
+                        </div>
+                    </div>
+                        {% else %}
+                        <div class="col">
+                            <p class="nav-link active fw-bold "></p>
+                        </div>
+                        <div class="col">
+                            <a class="btn btn-outline-primary text-nowrap"
+                               href="{% url "site_auth:login" %}">
+                                Log In
+                            </a>
+                        </div>
+                        <div class="col">
+                            <a class="btn btn-primary text-nowrap"
+                               href="{% url 'site_auth:signup' %}">
+                                Sign Up
+                            </a>
+                        </div>
+
+                {% endif %}
+
+            </div>
+        </div>
+    </div>
+</nav>
+
+<div class="container">
+    <div class="row">
+        <div class="col-7">
+            {% block body %}
+            {% endblock %}
+
+            {% block pagination %}
+            {% endblock %}
+        </div>
+        <div class="col ">
+            {% if request.user.is_authenticated and not disable_ask_button %}
+                <a class="btn btn-outline-warning btn-sm mb-3" href="{% url 'qna:ask' %}">Ask!</a>
+            {% endif %}
+            {% if trending_questions %}
+                <h4>Trending</h4>
+            {% endif %}
+            {% for question in trending_questions %}
+                <div class="mb-2">
+                    <span class="badge  bg-primary m-1">{{ question.vote_set.count }}</span>
+                    <a href="{% url 'qna:question' question.pk %}" class=""
+                       style="text-decoration: none; color: black;"> {{ question.title }} </a>
+                </div>
+            {% endfor %}
+
+        </div>
+    </div>
+</div>
+<script src="{% static 'js/bootstrap.bundle.min.js' %}"></script>
+</body>
+</html>

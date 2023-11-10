@@ -1,0 +1,180 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}
+    {{ question.title }}
+{% endblock %}
+
+{% block body %}
+    {# ВОПРОС #}
+    <h3>{{ question.title }}</h3>
+    <div class="mt-3">
+        <div class="row">
+            {# КОЛ-ВО ГОЛОСОВ #}
+            <div class="col-1 ">
+                <div class="row fw-bold"><a href="{% url 'qna:vote' %}?q={{ question.pk }}&up=true">
+                    <img src="{% static 'svg/arrow-up.svg' %}" alt="up vote">
+                </a></div>
+                <div class="row ms-0 fw-bold">{{ question.vote_set.count }}</div>
+                <div class="row"><a href="{% url 'qna:vote' %}?q={{ question.pk }}&up=false">
+                    <img src="{% static 'svg/arrow-down.svg' %}" alt="down vote"></a></div>
+            </div>
+            <div class="col">
+
+
+                {{ question.text }}
+                <div class="row position-relative">
+                    <div class="col mt-2 ">
+                        {# ТЭГИ #}
+                        {% for tag in question.tag.all %}
+                            <a href="{% url 'search:search' %}?q=tag:{{ tag.text }}"
+                               class="badge bg-primary-subtle nav-link nav-tabs">{{ tag }}</a>
+                        {% endfor %}
+                    </div>
+
+                    {# ФОТОГРАФИЯ СО ССЫЛКОЙ #}
+                    <div class="position-absolute start-50">
+                        <img style="max-width: 2em;" class="rounded"
+                                {% if question.author.profile.avatar %}
+                             src="{{ question.author.profile.avatar.url }}"
+                                {% else %}
+                             src="{% static "svg/person_square.svg" %}"
+                             width="35em"
+                                {% endif %}
+                             alt="Пользователь">
+                        <a class="" href="{% url 'user_profile:settings' %}">{{ question.author.username }}</a>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+    <hr>
+    {# ОТВЕТЫ #}
+    {% for answer in answers %}
+        <div class="mt-3">
+            <div class="row">
+                {# КОЛ-ВО ГОЛОСОВ И ЗВЕЗДА #}
+                <div class="col-1 ">
+                    <div class="row "><a href="{% url 'qna:vote' %}?q={{ question.pk }}&a={{ answer.pk }}&up=true">
+                        <img src="{% static 'svg/arrow-up.svg' %}" alt="up vote"></a>
+                    </div>
+                    <div class="row ms-0 fw-bold">{{ answer.vote_set.count }}</div>
+                    <div class="row"><a href="{% url 'qna:vote' %}?q={{ question.pk }}&a={{ answer.pk }}&up=false">
+                        <img src="{% static 'svg/arrow-down.svg' %}" alt="down vote"></a></div>
+                    {# ЗВЕЗДА #}
+                    {% if not correct_answer %}
+                        <div class="row img-container">
+                                {% if request.user == question_owner %}
+                                    <a href="{% url 'qna:vote' %}?q={{ question.pk }}&a={{ answer.pk }}&is_correct=true">
+                                {% else %}
+                                    <a href="#">
+                                {% endif %}
+                            <img src="{% static 'svg/star.svg' %}" alt="is valid answer"></a>
+                        </div>
+                    {% elif correct_answer is answer %}
+                        <div class="row">
+                            {% if request.user == question_owner %}
+                                    <a href="{% url 'qna:vote' %}?q={{ question.pk }}&a={{ answer.pk }}&is_correct=false">
+                                {% else %}
+                                    <a href="#">
+                                {% endif %}
+                                <img src="{% static 'svg/star-fill.svg' %}" alt="is valid answer"></a>
+                        </div>
+                    {% else %}
+                        <div class="row"><a href="#"> <img style="visibility: hidden;" src="{% static 'svg/star-fill.svg' %}" alt="is valid answer"></a>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div class="col position-relative">
+                    {{ answer.text }}
+
+                    <div class="row mt-2 ms-1 position-absolute start-50">
+                        {# ФОТОГРАФИЯ СО ССЫЛКОЙ #}
+                        <div class="col"></div>
+                        <div class="">
+                            <img style="max-width: 2em;" class="rounded"
+                                    {% if answer.author.profile.avatar %}
+                                 src="{{ answer.author.profile.avatar.url }}"
+                                    {% else %}
+                                 src="{% static "svg/person_square.svg" %}"
+                                 width="35em"
+                                    {% endif %}
+                                 alt="Пользователь">
+                            <a class="" href="{% url 'user_profile:settings' %}">{{ answer.author.username }}</a>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+        <hr>
+    {% endfor %}
+
+
+    {# НОВЫЙ ОТВЕТ #}
+    <h6>Your Answer</h6>
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" class="btn btn-success btn-sm">Submit</button>
+    </form>
+
+    {# ПАГИНАЦИЯ #}
+    <nav aria-label="..." class="mt-2">
+        <ul class="pagination">
+            {# PREVIOUS PAGE #}
+            {% if pages.previous_page %}
+                <li class="page-item"><a class="page-link"
+                                         href="{% url 'qna:question' pk=question.pk %}?page={{ pages.previous_page }}"
+                                         tabindex="-1">Previous</a>
+                    {% else %}
+                <li class="page-item disabled">
+                <a class="page-link" href="#" tabindex="-1" aria-disabled="true">Previous</a>
+            {% endif %}
+
+            </li>
+            {#ПЕРВАЯ СТРАНИЦА#}
+            {% if pages.first_page %}
+                <li class="page-item"><a class="page-link"
+                                         href="{% url 'qna:question' pk=question.pk %}?page={{ pages.first_page }}">{{ pages.first_page }}</a>
+                </li>
+                <li class="page-item disabled"><span class="page-link">...</span></li>
+            {% endif %}
+
+            {% for page in pages.pages %}
+                {% if page.is_active %}
+                    <li class="page-item active" aria-current="page"><a class="page-link"
+                                                                        href="{% url 'qna:question' pk=question.pk %}?page={{ page.number }}">{{ page.number }}</a>
+                    </li>
+                {% else %}
+                    <li class="page-item"><a class="page-link"
+                                             href="{% url 'qna:question' pk=question.pk %}?page={{ page.number }}">{{ page.number }}</a>
+                    </li>
+                {% endif %}
+            {% endfor %}
+            {# ... #}
+
+            {% if pages.last_page or not pages.pages %}
+                <li class="page-item disabled"><span class="page-link">...</span></li>
+            {% endif %}
+            {# ПОСЛЕДНЯЯ СТРАНИЦА #}
+            {% if pages.last_page %}
+                <li class="page-item"><a class="page-link"
+                                         href="{% url 'qna:question' pk=question.pk %}?page={{ pages.last_page }}">{{ pages.last_page }}</a>
+                </li>
+            {% endif %}
+
+            {# NEXT PAGE #}
+            {% if pages.next_page %}
+                <li class="page-item"><a class="page-link"
+                                         href="{% url 'qna:question' pk=question.pk %}?page={{ pages.next_page }}"
+                                         tabindex="-1">Next</a>
+                    {% else %}
+                <li class="page-item disabled"><a class="page-link" href="#" tabindex="-1" aria-disabled="true">Next</a>
+            {% endif %}
+
+        </ul>
+    </nav>
+{% endblock %}
