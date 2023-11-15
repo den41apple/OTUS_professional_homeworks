@@ -4,7 +4,7 @@ from typing import Type
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AbstractUser
 from django.test import TestCase
-from django.urls import reverse_lazy, reverse
+from django.urls import reverse
 
 UserModel: Type[AbstractUser] = get_user_model()
 

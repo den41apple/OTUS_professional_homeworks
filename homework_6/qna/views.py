@@ -17,6 +17,7 @@ from .utils import make_pagination
 class IndexView(ListView):
     template_name = "qna/index.html"
     _sort_type = "new"
+    questions_on_page = 20
 
     def get_queryset(self):
         sort_type = self.request.GET.get("sort", "new")
@@ -38,7 +39,8 @@ class IndexView(ListView):
         question_list: QuerySet = kwargs['question_list']
         current_page = int(self.request.GET.get("page", 1))
         pages = make_pagination(queryset=question_list,
-                                current_page=current_page)
+                                current_page=current_page,
+                                questions_on_page=self.questions_on_page)
         questions = question_list[pages['range']]
         kwargs.update(sort_type=self._sort_type,
                       questions=questions,
