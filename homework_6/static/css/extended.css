@@ -1,0 +1,12 @@
+.img-container {
+    position: relative;
+    display: inline-block;
+}
+
+.img-container:hover img {
+    opacity: 1;
+}
+
+.img-container img {
+    opacity: 0;
+}

@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}
+	Ask a question
+{% endblock %}
+{% block body %}
+    <h4>Ask a question</h4>
+    <form  method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit" class="btn btn-success btn-sm">Ask!</button>
+    </form>
+{% endblock %}

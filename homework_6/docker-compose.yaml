@@ -1,0 +1,43 @@
+version: "3.9"
+name: hasker
+
+services:
+
+  db:
+    container_name: db
+    image: postgres:16-bookworm
+    restart: always
+#    ports:
+#      - "5432:5432"
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: hasker
+    volumes:
+      - ./pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  site:
+    container_name: site
+    build:
+      dockerfile: docker/Dockerfile
+      context: ./
+    restart: always
+    ports:
+      - "8000:80"
+    environment:
+      PG_HOST: db
+      DEBUG: False
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./:/app/
+      - ./docker/uwsgi.ini:/app/uwsgi.ini
+      - ./docker/prestart.sh:/app/prestart.sh
+      - ./static:/static
+      - ./docker/nginx.conf:/etc/nginx/conf.d/app.conf

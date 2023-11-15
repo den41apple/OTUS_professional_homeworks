@@ -1,0 +1,15 @@
+{% extends "base.html"%}
+
+{% block title %}
+	Log In
+{% endblock %}
+
+{% block body %}
+    <form class="mx-1 mx-md-4" method="post">
+    {% csrf_token %}
+{{ form.as_p }}
+    <div class="d-flex justify-content-center mx-4 mb-3 mb-lg-4">
+            <input type="submit" class="btn btn-primary btn-lg" value="Enter">
+        </div>
+    </form>
+{% endblock %}

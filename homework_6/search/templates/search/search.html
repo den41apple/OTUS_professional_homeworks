@@ -1,0 +1,68 @@
+{%  extends "index_base.html" %}
+
+{% block title %}
+	Search
+{% endblock %}
+
+{% block body %}
+    <h3>{{ header }}</h3>
+	{{ block.super }}
+
+
+{% endblock %}
+
+{% block pagination %}
+
+
+    {# ПАГИНАЦИЯ #}
+    <nav aria-label="..." class="mt-2">
+        <ul class="pagination">
+        {# PREVIOUS PAGE #}
+        {% if pages.previous_page %}
+        	<li class="page-item"><a class="page-link" href="{% url 'search:search' %}?sort={{ sort_type }}&page={{ pages.previous_page }}" tabindex="-1">Previous</a>
+            {% else %}
+            <li class="page-item disabled"><a class="page-link" href="#" tabindex="-1" aria-disabled="true">Previous</a>
+        {% endif %}
+
+            </li>
+            {#ПЕРВАЯ СТРАНИЦА#}
+            {% if pages.first_page %}
+                <li class="page-item"><a class="page-link"
+                                         href="{% url 'search:search' %}?q={{ search_text }}&page={{ pages.first_page }}">{{ pages.first_page }}</a>
+                </li>
+                <li class="page-item disabled"><span class="page-link">...</span></li>
+            {% endif %}
+
+            {% for page in pages.pages %}
+                {% if page.is_active %}
+                    <li class="page-item active" aria-current="page"><a class="page-link"
+                                                                        href="{% url 'search:search' %}?q={{ search_text }}&page={{ page.number }}">{{ page.number }}</a>
+                    </li>
+                {% else %}
+                    <li class="page-item"><a class="page-link"
+                                             href="{% url 'search:search' %}?q={{ search_text }}&page={{ page.number }}">{{ page.number }}</a>
+                    </li>
+                {% endif %}
+            {% endfor %}
+            {# ... #}
+
+            {% if pages.last_page or not pages.pages %}
+                <li class="page-item disabled"><span class="page-link" >...</span></li>
+            {% endif %}
+            {# ПОСЛЕДНЯЯ СТРАНИЦА #}
+            {% if pages.last_page %}
+                <li class="page-item"><a class="page-link"
+                                         href="{% url 'search:search' %}?q={{ search_text }}&page={{ pages.last_page }}">{{ pages.last_page }}</a>
+                </li>
+            {% endif %}
+
+            {# NEXT PAGE #}
+        {% if pages.next_page %}
+        	<li class="page-item"><a class="page-link" href="{% url 'search:search' %}?q={{ search_text }}&page={{ pages.next_page }}" tabindex="-1">Next</a>
+            {% else %}
+            <li class="page-item disabled"><a class="page-link" href="#" tabindex="-1" aria-disabled="true">Next</a>
+        {% endif %}
+
+        </ul>
+    </nav>
+        {% endblock %}
