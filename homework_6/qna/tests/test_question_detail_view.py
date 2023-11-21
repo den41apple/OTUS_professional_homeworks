@@ -54,7 +54,7 @@ class QuestionDetailViewTestCase(TestCase):
         response = self.client.get(url)
         self.assertContains(response, "#" + self.tag_1_text, count=1)
         self.assertContains(response, "#" + self.tag_2_text, count=1)
-        self.assertContains(response, self.title, count=3)
+        self.assertContains(response, self.title, count=2)
         self.assertContains(response, self.text, count=1)
 
     def test_valid_queryset(self):

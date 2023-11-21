@@ -1,7 +1,6 @@
-from django.contrib.auth.forms import (UserCreationForm as UserCreationFormGeneric,
-                                       UsernameField,
-                                       AuthenticationForm as AuthenticationFormGeneric)
 from django import forms
+from django.contrib.auth.forms import (UserCreationForm as UserCreationFormGeneric,
+                                       AuthenticationForm as AuthenticationFormGeneric)
 
 
 class UserCreationForm(UserCreationFormGeneric):

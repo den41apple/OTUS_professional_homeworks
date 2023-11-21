@@ -1,12 +1,11 @@
 from django.contrib.auth import authenticate, login
 from django.contrib.auth.models import AbstractUser
-from django.shortcuts import render
-from django.urls import reverse_lazy
-from django.views.generic import CreateView
 from django.contrib.auth.views import (
     LoginView as LoginViewGeneric,
     LogoutView as LogoutViewGeneric,
 )
+from django.urls import reverse_lazy
+from django.views.generic import CreateView
 
 from user_profile.models import Profile
 from .forms import UserCreationForm, AuthenticationForm

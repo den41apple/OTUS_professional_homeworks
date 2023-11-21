@@ -1,4 +1,3 @@
-from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Count, Q, QuerySet
 from django.http import HttpResponseRedirect
 from django.urls import reverse
@@ -18,15 +17,16 @@ class SearchView(IndexView):
             return Question.objects.all()[:0]
 
         search_text = search_text.lower()
-        if "tag:" not in search_text:
+        if not search_text.startswith("tag:"):
             self._header = "Search result"
-            questions = self._get_text_queryset(search_text)
+            questions = self.get_text_queryset(search_text)
         else:
             self._header = "Tag result"
-            questions = self._get_tag_queryset(search_text)
+            questions = self.get_tag_queryset(search_text)
         return questions
 
-    def _get_common_queryset(self) -> QuerySet:
+    @staticmethod
+    def _get_common_queryset() -> QuerySet:
         """
         Часть запроса одинаковая для обоих случаев
         """
@@ -40,9 +40,10 @@ class SearchView(IndexView):
                      .order_by("-votes_count", "-created_at"))
         return questions
 
-    def _get_text_queryset(self, search_text: str) -> QuerySet:
+    @classmethod
+    def get_text_queryset(cls, search_text: str) -> QuerySet:
         """Возвращает поиск по тексту"""
-        questions = self._get_common_queryset()
+        questions = cls._get_common_queryset()
         questions = (questions
                      .filter(Q(title__icontains=search_text)
                              | Q(text__icontains=search_text)
@@ -50,12 +51,13 @@ class SearchView(IndexView):
                      .all())
         return questions
 
-    def _get_tag_queryset(self, search_text: str) -> QuerySet:
+    @classmethod
+    def get_tag_queryset(cls, search_text: str) -> QuerySet:
         """
         Возвращает поиск по тэгам
         """
         tag = search_text.lower().replace("tag:", "").strip()
-        questions = self._get_common_queryset()
+        questions = cls._get_common_queryset()
         questions = (questions
                      .filter(tag__text__iexact=tag)
                      .all())
