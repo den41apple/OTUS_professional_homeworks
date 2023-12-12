@@ -8,6 +8,7 @@ import multiprocessing
 import os
 import sys
 import threading
+from itertools import chain
 from optparse import OptionParser
 
 # pip install python-memcached
@@ -22,13 +23,10 @@ import appsinstalled_pb2
 NORMAL_ERR_RATE = 0.01
 AppsInstalled = collections.namedtuple("AppsInstalled", ["dev_type", "dev_id", "lat", "lon", "apps"])
 
-THREADS_COUNT = 10  # Количество потоков в одном процессе
-LINES_PER_THREAD = 100  # Количество строк на 1 поток
-thread_pool = threading.BoundedSemaphore(THREADS_COUNT)
-lock = threading.RLock()
-local = threading.local()
+LINES_PER_TRANSACTION = 100  # Количество строк на 1 транзакцию отправки
 ROWS_COUNT = 0  # Количество строк
 BAR: tqdm = None  # Прогресс-бар
+memcache_clients = {}  # Кешированные клиенты
 
 
 def dot_rename(path):
@@ -37,22 +35,40 @@ def dot_rename(path):
     os.rename(path, os.path.join(head, "." + fn))
 
 
-def insert_appsinstalled(memc_addr, appsinstalled, dry_run=False):
-    ua = appsinstalled_pb2.UserApps()
-    ua.lat = appsinstalled.lat
-    ua.lon = appsinstalled.lon
-    key = "%s:%s" % (appsinstalled.dev_type, appsinstalled.dev_id)
-    ua.apps.extend(appsinstalled.apps)
-    packed = ua.SerializeToString()
-    # @TODO persistent connection
-    # @TODO retry and timeouts!
+def get_memcache_client(memc_addr) -> memcache.Client:
+    """
+    Возвращает закешированные соединения
+    """
+    if memc_addr in memcache_clients:
+        return memcache_clients[memc_addr]
+    memcache_clients[memc_addr] = memcache.Client([memc_addr])
+    return memcache_clients[memc_addr]
+
+
+def insert_appsinstalled(memcaddr_appsinstalled: dict[list], dry_run: bool = False):
+    def pack(appsinstalled):
+        ua = appsinstalled_pb2.UserApps()
+        ua.lat = appsinstalled.lat
+        ua.lon = appsinstalled.lon
+        key = "%s:%s" % (appsinstalled.dev_type, appsinstalled.dev_id)
+        ua.apps.extend(appsinstalled.apps)
+        packed = ua.SerializeToString()
+        return {key: packed}
+
+    for key, value in memcaddr_appsinstalled.items():
+        for i, el in enumerate(value):
+            memcaddr_appsinstalled[key][i] = pack(el)
+        memcaddr_appsinstalled[key] = dict(chain.from_iterable(d.items() for d in value))
+
     try:
         if dry_run:
-            logging.debug("%s - %s -> %s" % (memc_addr, key, str(ua).replace("\n", " ")))
+            for memc_addr, packed_multi in memcaddr_appsinstalled.items():
+                for key, packed in packed_multi.items():
+                    logging.debug("%s - %s" % (memc_addr, key))
         else:
-            memc = memcache.Client([memc_addr])
-            with lock:
-                memc.set(key, packed)
+            for memc_addr, packed_multi in memcaddr_appsinstalled.items():
+                memc = get_memcache_client(memc_addr)
+                memc.set_multi(packed_multi)
     except Exception as e:
         logging.exception("Cannot write to memc %s: %s" % (memc_addr, e))
         return False
@@ -83,73 +99,53 @@ def process_file(args):
     # Разбор аргументов
     fn, device_memc, options, queue = args
 
-    def process_line(lines: tuple, thread_pool):
+    def process_lines(lines: list):
         """Обработка строки файла"""
         nonlocal processed, errors
+        memcaddr_appsinstalled: dict[list] = {}
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
 
-        with thread_pool:
-            for line in lines:
-                line = line.strip()
-                if not line:
-                    return
+            appsinstalled = parse_appsinstalled(line)
+            if not appsinstalled:
+                errors += 1
+                continue
 
-                appsinstalled = parse_appsinstalled(line)
-                if not appsinstalled:
-                    errors += 1
-                    return
+            memc_addr = device_memc.get(appsinstalled.dev_type)
+            if not memc_addr:
+                errors += 1
+                logging.error("Unknown device type: %s" % appsinstalled.dev_type)
+                continue
+            if memc_addr not in memcaddr_appsinstalled:
+                memcaddr_appsinstalled[memc_addr] = []
+            memcaddr_appsinstalled[memc_addr].append(appsinstalled)
 
-                memc_addr = device_memc.get(appsinstalled.dev_type)
-                if not memc_addr:
-                    errors += 1
-                    logging.error("Unknown device type: %s" % appsinstalled.dev_type)
-                    return
+            # if ok:
+            #     processed += 1
+            # else:
+            #     errors += 1
 
-                ok = insert_appsinstalled(memc_addr, appsinstalled, options.dry)
-            with lock:
-                if ok:
-                    processed += 1
-                else:
-                    errors += 1
-
-    def wait_and_refresh_threads():
-        nonlocal threads, cnt_threads
-        [t.join() for t in threads]
-        cnt_threads = 0
-        threads = []
-
-    def start_thread(lines, thread_pool):
-        nonlocal cnt_threads
-        """Запуск потока"""
-        thread = threading.Thread(target=process_line, args=(lines, thread_pool))
-        threads.append(thread)
-        thread.start()
-        cnt_threads += 1
+        insert_appsinstalled(memcaddr_appsinstalled, options.dry)
 
     processed = errors = 0
     logging.info('Processing %s' % fn)
     fd = gzip.open(fn, "rt", encoding="UTF-8")
-    threads = []
     lines = []
-    cnt_threads = 0
     cnt_lines = 0
     for line in fd:
         lines.append(line)
         cnt_lines += 1
-        if cnt_lines >= LINES_PER_THREAD:
-            start_thread(tuple(lines), thread_pool)
+        if cnt_lines == LINES_PER_TRANSACTION:
             queue.put(cnt_lines)
-            cnt_lines = 0
-            if cnt_threads >= THREADS_COUNT:
-                # Если набираем необходимое кол-во потоков
-                wait_and_refresh_threads()
+            process_lines(lines)
             lines.clear()
+            cnt_lines = 0
 
     # В конце запускаем поток с оставшимися строками
     if lines:
-        start_thread(lines, thread_pool)
         lines.clear()
-    # И дожидаемся оставшихся потоков
-    wait_and_refresh_threads()
     queue.put(cnt_lines)
 
     if not processed:
