@@ -214,7 +214,7 @@ func processFile(file_name string, mc map[string]*memcacheInfo, workers uint,
 
 func getConfig() *config {
 	cfg := &config{}
-	flag.StringVar(&cfg.pattern, "pattern", "*.tsv.gz", "Паттерн имени файла")
+	flag.StringVar(&cfg.pattern, "pattern", "[^.]*.tsv.gz", "Паттерн имени файла")
 	flag.UintVar(&cfg.workers, "workers", uint(runtime.NumCPU()), "Кол-во обработчиков")
 	flag.UintVar(&cfg.loaders, "loaders", 4, "Кол-во обработчиков на каждый Memcached адрес")
 	flag.StringVar(&cfg.idfa, "idfa", "127.0.0.1:33013", "idfa device Memcached address")

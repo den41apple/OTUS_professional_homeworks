@@ -25,7 +25,7 @@ go run main.go
   -loaders <uint>                                                  
         Кол-во обработчиков на каждый Memcached адрес (по умолчанию 4)
   -pattern <string>                                                
-        Паттерн имени файла (по умолчанию "*.tsv.gz")                 
+        Паттерн имени файла (по умолчанию "[^.]*.tsv.gz")                 
   -retries <int>                                                   
         Кол-во повторений в сек записи в Memcached (по умолчанию 5)
   -retry_delay <int>
